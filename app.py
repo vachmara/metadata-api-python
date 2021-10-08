@@ -1,15 +1,10 @@
 from flask import Flask
-from flask import jsonify
-from google.cloud import storage
-from google.oauth2 import service_account
+from flask import jsonify, send_file
 from PIL import Image
-import os
-import mimetypes
-
-GOOGLE_STORAGE_PROJECT = os.environ['GOOGLE_STORAGE_PROJECT']
-GOOGLE_STORAGE_BUCKET = os.environ['GOOGLE_STORAGE_BUCKET']
 
 app = Flask(__name__)
+
+BASE_URI = ""
 
 FIRST_NAMES = ['Herbie', 'Sprinkles', 'Boris', 'Dave', 'Randy', 'Captain']
 LAST_NAMES = ['Starbelly', 'Fisherton', 'McCoy']
@@ -17,7 +12,6 @@ LAST_NAMES = ['Starbelly', 'Fisherton', 'McCoy']
 BASES = ['jellyfish', 'starfish', 'crab', 'narwhal', 'tealfish', 'goldfish']
 EYES = ['big', 'joy', 'wink', 'sleepy', 'content']
 MOUTH = ['happy', 'surprised', 'pleased', 'cute']
-
 
 INT_ATTRIBUTES = [5, 2, 3, 4, 8]
 FLOAT_ATTRIBUTES = [1.4, 2.3, 11.7, 90.2, 1.2]
@@ -30,6 +24,14 @@ STR_ATTRIBUTES = [
 BOOST_ATTRIBUTES = [10, 40, 30]
 PERCENT_BOOST_ATTRIBUTES = [5, 10, 15]
 NUMBER_ATTRIBUTES = [1, 2, 1, 1]
+
+
+@app.route("/image/<token_id>")
+def index(token_id):
+    token_id = int(token_id)
+    image_path = "images/output/%s.png" % token_id
+
+    return send_file(image_path)
 
 
 @app.route('/api/creature/<token_id>')
@@ -58,12 +60,11 @@ def creature(token_id):
     _add_attribute(attributes, 'stamina_increase', PERCENT_BOOST_ATTRIBUTES, token_id, display_type="boost_percentage")
     _add_attribute(attributes, 'generation', NUMBER_ATTRIBUTES, token_id, display_type="number")
 
-
     return jsonify({
         'name': creature_name,
         'description': "Friendly OpenSea Creature that enjoys long swims in the ocean.",
         'image': image_url,
-        'external_url': 'https://example.com/?token_id=%s' % token_id,
+        'external_url': "{}/?token_id={}".format(BASE_URI, token_id),
         'attributes': attributes
     })
 
@@ -80,7 +81,7 @@ def box(token_id):
         'name': "Creature Loot Box",
         'description': "This lootbox contains some OpenSea Creatures! It can also be traded!",
         'image': image_url,
-        'external_url': 'https://example.com/?token_id=%s' % token_id,
+        'external_url': "{}/?token_id={}".format(BASE_URI, token_id),
         'attributes': attributes
     })
 
@@ -114,7 +115,7 @@ def factory(token_id):
         'name': name,
         'description': description,
         'image': image_url,
-        'external_url': 'https://example.com/?token_id=%s' % token_id,
+        'external_url': "{}/?token_id={}".format(BASE_URI, token_id),
         'attributes': attributes
     })
 
@@ -142,17 +143,7 @@ def _compose_image(image_files, token_id, path="creature"):
     output_path = "images/output/%s.png" % token_id
     composite.save(output_path)
 
-    blob = _get_bucket().blob(f"{path}/{token_id}.png")
-    blob.upload_from_filename(filename=output_path)
-    return blob.public_url
-
-
-def _get_bucket():
-    credentials = service_account.Credentials.from_service_account_file('credentials/google-storage-credentials.json')
-    if credentials.requires_scopes:
-        credentials = credentials.with_scopes(['https://www.googleapis.com/auth/devstorage.read_write'])
-    client = storage.Client(project=GOOGLE_STORAGE_PROJECT, credentials=credentials)
-    return client.get_bucket(GOOGLE_STORAGE_BUCKET)
+    return output_path
 
 
 if __name__ == '__main__':
